@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delight — Demo Scoring Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#08111f;--surface:#0f1f3d;--surface2:#152847;--surface3:#1a3055;
+  --border:#1e3660;--border2:#254070;--accent:#c9a227;--accent-dark:#b8920f;
+  --accent3:#38bdf8;--text:#f1f5f9;--text-muted:#7a90b0;--text-dim:#2e4a6e;
+  --good:#4ade80;--okay:#facc15;--poor:#f87171;--radius:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;min-height:100vh;}
+
+/* AUTH */
+#auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 30% 50%,#0f2a5a 0%,var(--bg) 60%);}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px;width:100%;max-width:420px;text-align:center;}
+.auth-logo{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--accent);margin-bottom:4px;}
+.auth-sub{font-size:11px;color:var(--text-muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:40px;}
+.auth-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:8px;}
+.auth-desc{font-size:12px;color:var(--text-muted);line-height:1.7;margin-bottom:32px;}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px;background:var(--accent);color:#0f1f3d;border:none;border-radius:var(--radius);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.btn-google:hover{background:var(--accent-dark);transform:translateY(-1px);}
+.btn-google svg{width:20px;height:20px;flex-shrink:0;}
+.auth-note{font-size:11px;color:var(--text-dim);margin-top:20px;}
+
+/* SHELL */
+#app-screen{display:none;}
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh;}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.logo-wrap{padding:20px 16px;border-bottom:1px solid var(--border);}
+.logo-mark{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;color:var(--accent);}
+.logo-sub{font-size:10px;color:var(--text-muted);letter-spacing:0.12em;text-transform:uppercase;margin-top:2px;}
+.nav{padding:16px 0;flex:1;}
+.nav-section{padding:0 12px;margin-bottom:24px;}
+.nav-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);padding:0 8px;margin-bottom:6px;}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;background:none;border:none;border-radius:var(--radius);color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;text-align:left;transition:all 0.15s;}
+.nav-btn:hover{background:var(--surface2);color:var(--text);}
+.nav-btn.active{background:var(--surface3);color:var(--accent);}
+.nav-icon{font-size:14px;width:18px;text-align:center;}
+.rep-list{padding:0 12px;}
+.rep-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius);}
+.rep-avatar{width:26px;height:26px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);font-family:'Syne',sans-serif;flex-shrink:0;}
+.rep-name{font-size:12px;color:var(--text);flex:1;}
+.sidebar-user{padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.user-name{font-size:11px;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;}
+.btn-signout{background:none;border:1px solid var(--border2);border-radius:6px;padding:4px 8px;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
+.btn-signout:hover{color:var(--poor);border-color:var(--poor);}
+
+/* MAIN */
+.main{min-height:100vh;min-width:0;overflow:hidden;}
+.topbar{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);position:sticky;top:0;z-index:100;gap:12px;flex-wrap:wrap;}
+.topbar-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+.topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.content{padding:20px;}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-primary{background:var(--accent);color:#0f1f3d;font-weight:700;}
+.btn-primary:hover{background:var(--accent-dark);transform:translateY(-1px);}
+.btn-ghost{background:none;color:var(--text-muted);border:1px solid var(--border2);}
+.btn-ghost:hover{border-color:var(--text-muted);color:var(--text);}
+.btn-danger{background:none;color:var(--poor);border:1px solid var(--poor);}
+.btn-danger:hover{background:var(--poor);color:#000;}
+.btn-sm{padding:5px 10px;font-size:11px;}
+
+/* VIEWS */
+.view{display:none;}
+.view.active{display:block;animation:fadeUp 0.25s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+.card-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:16px;}
+.stats-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;min-width:0;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);}
+.stat-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.stat-value{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--text);line-height:1;}
+.stat-delta{font-size:11px;color:var(--text-muted);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.stat-delta.up{color:var(--good);}.stat-delta.down{color:var(--poor);}
+.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:20px;}
+
+/* TABLE */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:10px 14px;text-align:left;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;cursor:pointer;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--surface2);}
+td{padding:11px 14px;font-size:12px;color:var(--text);vertical-align:middle;}
+
+/* BADGES */
+.score-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;white-space:nowrap;}
+.badge-good{background:rgba(74,222,128,0.12);color:var(--good);border:1px solid rgba(74,222,128,0.25);}
+.badge-okay{background:rgba(250,204,21,0.12);color:var(--okay);border:1px solid rgba(250,204,21,0.25);}
+.badge-poor{background:rgba(248,113,113,0.12);color:var(--poor);border:1px solid rgba(248,113,113,0.25);}
+.badge-neutral{background:var(--surface3);color:var(--text-muted);border:1px solid var(--border2);}
+.badge-blue{background:rgba(56,189,248,0.12);color:var(--accent3);border:1px solid rgba(56,189,248,0.25);}
+
+/* FORMS */
+.form-group{margin-bottom:18px;}
+.form-label{font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:7px;}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;transition:border-color 0.15s;outline:none;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);}
+.form-textarea{resize:vertical;min-height:90px;line-height:1.6;}
+.form-select option{background:var(--surface2);}
+
+/* SCORE SLIDERS */
+.score-slider-wrap{margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+.score-slider-wrap:last-child{border-bottom:none;}
+.score-slider-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.score-slider-label{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);}
+.score-display{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;min-width:32px;text-align:right;}
+.score-sublabel{font-size:10px;color:var(--text-muted);text-align:right;margin-top:2px;}
+.weight-badge{font-size:10px;color:var(--text-dim);background:var(--surface3);padding:2px 7px;border-radius:99px;margin-left:8px;}
+input[type="range"]{-webkit-appearance:none;width:100%;height:6px;border-radius:3px;background:var(--surface3);outline:none;cursor:pointer;}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 0 2px var(--accent);}
+.override-note{font-size:10px;color:var(--accent);margin-top:4px;display:none;}
+.override-note.visible{display:block;}
+
+/* AI BLOCK */
+.ai-block{background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--accent3);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
+.ai-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--accent3);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--accent3);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.ai-text{font-size:12px;color:var(--text);line-height:1.7;}
+.coaching-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:10px;background:rgba(201,162,39,0.1);color:var(--accent);border:1px solid rgba(201,162,39,0.25);margin:2px;}
+
+/* SKILL BARS */
+.skill-bars{display:flex;flex-direction:column;gap:12px;}
+.skill-row{display:flex;flex-direction:column;gap:5px;}
+.skill-meta{display:flex;justify-content:space-between;align-items:center;}
+.skill-name{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;}
+.skill-pct{font-size:13px;font-weight:700;font-family:'Syne',sans-serif;}
+.bar-track{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width 0.6s cubic-bezier(0.4,0,0.2,1);}
+.bar-good{background:var(--good);}.bar-okay{background:var(--okay);}.bar-poor{background:var(--poor);}
+
+/* LOADING */
+.loading{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:12px;padding:12px 0;}
+.spinner{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--text-muted);}
+.empty-icon{font-size:28px;margin-bottom:10px;opacity:0.4;}
+.empty-title{font-family:'Syne',sans-serif;font-size:15px;color:var(--text-dim);margin-bottom:6px;}
+.empty-sub{font-size:12px;line-height:1.6;}
+
+/* LEADERBOARD */
+.leaderboard{display:flex;flex-direction:column;gap:8px;}
+.lb-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);}
+.lb-rank{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--text-dim);width:28px;text-align:center;flex-shrink:0;}
+.lb-rank.gold{color:var(--accent);}.lb-rank.silver{color:#94a3b8;}.lb-rank.bronze{color:#b45309;}
+.lb-info{flex:1;}
+.lb-name{font-size:13px;font-weight:600;font-family:'Syne',sans-serif;}
+.lb-calls{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.lb-score{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;}
+
+/* TREND */
+.trend-wrap{display:flex;align-items:flex-end;gap:6px;height:70px;}
+.trend-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;}
+.trend-bar-area{flex:1;width:100%;display:flex;align-items:flex-end;}
+.trend-bar{width:100%;border-radius:3px 3px 0 0;min-height:3px;}
+.trend-label{font-size:9px;color:var(--text-dim);white-space:nowrap;}
+
+/* DEAL SIGNAL */
+.deal-signal{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;}
+.signal-3yr{background:rgba(74,222,128,0.1);color:var(--good);border:1px solid rgba(74,222,128,0.25);}
+.signal-1yr{background:rgba(250,204,21,0.1);color:var(--okay);border:1px solid rgba(250,204,21,0.25);}
+.signal-unknown{background:var(--surface3);color:var(--text-muted);border:1px solid var(--border2);}
+
+/* CLARI */
+.clari-calls{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;}
+.clari-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color 0.15s;}
+.clari-item:hover{border-color:var(--accent3);}
+.clari-item.selected{border-color:var(--accent);background:rgba(201,162,39,0.06);}
+
+/* FOCUS BOX */
+.focus-box{background:rgba(201,162,39,0.08);border:1px solid rgba(201,162,39,0.3);border-left:3px solid var(--accent);border-radius:var(--radius);padding:16px;margin-top:16px;}
+.focus-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+.focus-text{font-size:13px;font-family:'Instrument Serif',serif;font-style:italic;color:var(--text);line-height:1.6;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;}
+.modal-header{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:10;}
+.modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:4px 8px;}
+.modal-close:hover{color:var(--text);}
+.modal-body{padding:20px;}
+
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.section-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+
+@media(max-width:900px){.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Delight</div>
+    <div class="auth-sub">Demo Scoring Platform</div>
+    <div class="auth-title">Sign in to continue</div>
+    <div class="auth-desc">Secure access for Simpro Group team members only.</div>
+    <button class="btn-google" onclick="signInWithGoogle()">
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-note">Access restricted to authorised Simpro team members.</div>
+    <div id="auth-error" style="color:var(--poor);font-size:11px;margin-top:12px;display:none"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+ <div class="shell">
+  <aside class="sidebar">
+    <div class="logo-wrap">
+      <div class="logo-mark">Delight</div>
+      <div class="logo-sub">Demo Scoring</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Views</div>
+        <button class="nav-btn active" onclick="showView('dashboard')"><span class="nav-icon">◈</span>Dashboard</button>
+        <button class="nav-btn" onclick="showView('score-call')" id="nav-score"><span class="nav-icon">＋</span>Score a Call</button>
+        <button class="nav-btn" onclick="showView('all-calls')"><span class="nav-icon">≡</span>All Calls</button>
+        <button class="nav-btn" onclick="showView('coaching')"><span class="nav-icon">⟳</span>Coaching Trends</button>
+        <button class="nav-btn" onclick="showView('my-scores')" id="nav-my"><span class="nav-icon">◎</span>My Scorecards</button>
+      </div>
+      <div class="nav-section" id="reps-section">
+        <div class="nav-label">Reps</div>
+        <div class="rep-list" id="sidebar-reps"></div>
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="rep-avatar" id="user-avatar">?</div>
+      <div style="flex:1;min-width:0">
+        <div class="user-name" id="user-name-display">—</div>
+        <div class="user-role" id="user-role-display">—</div>
+      </div>
+      <button class="btn-signout" onclick="signOut()">Out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-actions">
+        <span id="week-label" style="font-size:11px;color:var(--text-muted)"></span>
+        <button class="btn btn-primary" onclick="showView('score-call')" id="topbar-score-btn">+ Score Call</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="view active" id="view-dashboard">
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Calls This Week</div><div class="stat-value" id="s-calls">0</div><div class="stat-delta" id="s-calls-d">—</div></div>
+          <div class="stat-card"><div class="stat-label">Avg Weighted Score</div><div class="stat-value" id="s-avg">—</div><div class="stat-delta" id="s-avg-d">—</div></div>
+          <div class="stat-card"><div class="stat-label">3-Year Deals</div><div class="stat-value" id="s-3yr">—</div><div class="stat-delta" style="color:var(--accent)">CEO priority metric</div></div>
+          <div class="stat-card"><div class="stat-label">Biggest Skill Gap</div><div class="stat-value" id="s-gap" style="font-size:16px;padding-top:6px">—</div><div class="stat-delta" id="s-gap-d">—</div></div>
+        </div>
+        <div class="two-col">
+          <div class="card"><div class="card-title">Team Skills — This Week</div><div class="skill-bars" id="dash-skills"><div class="empty" style="padding:16px 0"><div class="empty-sub">No calls scored yet.</div></div></div></div>
+          <div class="card"><div class="card-title">6-Week Score Trend</div><div class="trend-wrap" id="dash-trend"><div class="empty" style="width:100%;padding:16px 0"><div class="empty-sub">Score across multiple weeks.</div></div></div></div>
+        </div>
+        <div class="section-header"><div class="section-title">Recent Calls</div></div>
+        <div class="table-wrap"><table><thead><tr><th>Rep</th><th>Prospect</th><th>Date</th><th>Discovery</th><th>Objections</th><th>Stakeholders</th><th>Next Steps</th><th>Weighted</th><th>Outcome</th></tr></thead><tbody id="dash-tbody"></tbody></table></div>
+      </div>
+
+      <!-- SCORE A CALL -->
+      <div class="view" id="view-score-call">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Pull from Clari Copilot</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:160px"><label class="form-label">Date Range</label><select class="form-select" id="clari-range"><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week" selected>This Week</option><option value="month">This Month</option></select></div>
+            <button class="btn btn-ghost" onclick="pullClariCalls()" style="flex-shrink:0">↓ Pull Calls</button>
+          </div>
+          <div id="clari-status" style="margin-top:10px;font-size:11px;color:var(--text-muted)"></div>
+          <div class="clari-calls" id="clari-list" style="margin-top:12px;display:none"></div>
+        </div>
+
+        <div class="two-col" style="margin-bottom:0">
+          <div>
+            <div class="form-group"><label class="form-label">Rep</label><select class="form-select" id="sc-rep"></select></div>
+            <div class="form-group"><label class="form-label">Prospect / Company</label><input class="form-input" id="sc-prospect" placeholder="e.g. Acme Electrical Ltd"></div>
+            <div class="form-group"><label class="form-label">Call Date</label><input class="form-input" type="date" id="sc-date"></div>
+            <div class="form-group"><label class="form-label">Deal Outcome</label><select class="form-select" id="sc-outcome"><option value="pending">Pending</option><option value="next_steps">Next Steps Set</option><option value="won_3yr">✓ Closed Won — 3 Year</option><option value="won_1yr">✓ Closed Won — 1 Year</option><option value="lost">✗ Closed Lost</option><option value="stalled">⚠ Stalled</option></select></div>
+          </div>
+          <div>
+            <div class="form-group"><label class="form-label">Transcript <span style="color:var(--text-dim)">(paste or from Clari)</span></label><textarea class="form-textarea" id="sc-transcript" placeholder="Paste transcript then click Analyse..." style="min-height:170px"></textarea></div>
+            <button class="btn btn-primary" style="width:100%" onclick="analyzeTranscript()">⟳ Analyse with AI</button>
+            <div id="analyze-status" style="margin-top:8px"></div>
+          </div>
+        </div>
+
+        <div id="ai-results" style="display:none;margin:16px 0">
+          <div class="ai-block"><div class="ai-label"><div class="ai-dot"></div>AI Analysis</div><div class="ai-text" id="ai-summary-text"></div></div>
+          <div id="ai-deal-signal" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <div class="card-title" style="margin:0">Rubric Scoring — 1 to 5</div>
+            <div style="font-size:11px;color:var(--text-muted)">AI pre-fills · override freely</div>
+          </div>
+
+          <div class="score-slider-wrap">
+            <div class="score-slider-header"><div><span class="score-slider-label">Discovery</span><span class="weight-badge">30%</span></div><div style="text-align:right"><div class="score-display" id="disp-discovery" style="color:var(--text-muted)">—</div><div class="score-sublabel" id="lbl-discovery">Not scored</div></div></div>
+            <input type="range" min="1" max="5" value="3" id="slider-discovery" oninput="updateSlider('discovery',this.value)">
+            <div class="override-note" id="override-discovery">⚑ Overridden from AI suggestion</div>
+            <textarea class="form-textarea" id="notes-discovery" placeholder="Coaching notes for Discovery..." style="margin-top:10px;min-height:60px"></textarea>
+          </div>
+
+          <div class="score-slider-wrap">
+            <div class="score-slider-header"><div><span class="score-slider-label">Objection Handling</span><span class="weight-badge">25%</span></div><div style="text-align:right"><div class="score-display" id="disp-objections" style="color:var(--text-muted)">—</div><div class="score-sublabel" id="lbl-objections">Not scored</div></div></div>
+            <input type="range" min="1" max="5" value="3" id="slider-objections" oninput="updateSlider('objections',this.value)">
+            <div class="override-note" id="override-objections">⚑ Overridden from AI suggestion</div>
+            <textarea class="form-textarea" id="notes-objections" placeholder="Coaching notes for Objection Handling..." style="margin-top:10px;min-height:60px"></textarea>
+          </div>
+
+          <div class="score-slider-wrap">
+            <div class="score-slider-header"><div><span class="score-slider-label">Stakeholders</span><span class="weight-badge">15%</span></div><div style="text-align:right"><div class="score-display" id="disp-stakeholders" style="color:var(--text-muted)">—</div><div class="score-sublabel" id="lbl-stakeholders">Not scored</div></div></div>
+            <input type="range" min="1" max="5" value="3" id="slider-stakeholders" oninput="updateSlider('stakeholders',this.value)">
+            <div class="override-note" id="override-stakeholders">⚑ Overridden from AI suggestion</div>
+            <textarea class="form-textarea" id="notes-stakeholders" placeholder="Coaching notes for Stakeholders..." style="margin-top:10px;min-height:60px"></textarea>
+          </div>
+
+          <div class="score-slider-wrap">
+            <div class="score-slider-header"><div><span class="score-slider-label">Next Steps</span><span class="weight-badge">30%</span></div><div style="text-align:right"><div class="score-display" id="disp-nextsteps" style="color:var(--text-muted)">—</div><div class="score-sublabel" id="lbl-nextsteps">Not scored</div></div></div>
+            <input type="range" min="1" max="5" value="3" id="slider-nextsteps" oninput="updateSlider('nextsteps',this.value)">
+            <div class="override-note" id="override-nextsteps">⚑ Overridden from AI suggestion</div>
+            <textarea class="form-textarea" id="notes-nextsteps" placeholder="Coaching notes for Next Steps..." style="margin-top:10px;min-height:60px"></textarea>
+          </div>
+
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted)">Weighted Score</span>
+            <div style="text-align:right"><span class="score-display" id="weighted-preview" style="color:var(--accent)">—</span><span style="font-size:13px;color:var(--text-muted)">/5</span><div style="font-size:10px;color:var(--text-muted)" id="weighted-label">Score categories above</div></div>
+          </div>
+
+          <div class="form-group"><label class="form-label">Overall Coaching Note</label><textarea class="form-textarea" id="sc-overall-notes" placeholder="What's the most important thing this rep should do differently next call?"></textarea></div>
+          <div class="form-group"><label class="form-label">Focus Action for Rep</label><input class="form-input" id="sc-focus-action" placeholder="One specific action before next call..."></div>
+
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" style="flex:1" onclick="saveCall()">Save Call</button>
+            <button class="btn btn-ghost" onclick="resetForm()">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL CALLS -->
+      <div class="view" id="view-all-calls">
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <select class="form-select" style="width:160px" id="filter-rep" onchange="renderAllCalls()"><option value="">All Reps</option></select>
+          <select class="form-select" style="width:160px" id="filter-outcome" onchange="renderAllCalls()"><option value="">All Outcomes</option><option value="pending">Pending</option><option value="next_steps">Next Steps Set</option><option value="won_3yr">Won — 3 Year</option><option value="won_1yr">Won — 1 Year</option><option value="lost">Lost</option><option value="stalled">Stalled</option></select>
+          <select class="form-select" style="width:150px" id="filter-week" onchange="renderAllCalls()"><option value="">All Time</option></select>
+        </div>
+        <div id="all-calls-container"></div>
+      </div>
+
+      <!-- COACHING -->
+      <div class="view" id="view-coaching">
+        <div class="stats-row" id="coaching-rep-stats"></div>
+        <div class="two-col">
+          <div class="card"><div class="card-title">Team Skill Gaps — All Time</div><div class="skill-bars" id="coaching-skills"><div class="empty" style="padding:16px 0"><div class="empty-sub">No calls scored yet.</div></div></div></div>
+          <div class="card"><div class="card-title">Deal Tier Conversion</div><div id="deal-tier-chart"><div class="empty" style="padding:16px 0"><div class="empty-sub">No closed deals yet.</div></div></div></div>
+        </div>
+        <div class="card" style="margin-bottom:16px"><div class="card-title">Leaderboard</div><div class="leaderboard" id="leaderboard"></div></div>
+        <div class="card"><div class="card-title">Rep Skill Breakdown</div><div id="rep-breakdown"></div></div>
+      </div>
+
+      <!-- MY SCORECARDS -->
+      <div class="view" id="view-my-scores">
+        <div id="my-scores-container"></div>
+      </div>
+
+    </div>
+  </main>
+ </div>
+</div>
+
+<script>
+const SUPA_URL='https://znhntwzbrndelttfdhghc.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuaG50d3picm5kZWx0ZmRoZ2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODUzODYsImV4cCI6MjA5MjQ2MTM4Nn0.8epwhKIX-rnPAId3SEdAbYcjnIOoC3pbBcoSMB5LBU4';
+const CLARI_API_KEY='lhD8kbRF1C9IyIDf519zJrcyZgyN9PE3e1qKIYTb';
+const CLARI_SECRET='88a827b8-2098-4938-92e1-f3e3e6c961bb';
+
+const WEIGHTS={discovery:0.30,objections:0.25,stakeholders:0.15,nextsteps:0.30};
+const CATS=['discovery','objections','stakeholders','nextsteps'];
+const CAT_LABELS={discovery:'Discovery',objections:'Objection Handling',stakeholders:'Stakeholders',nextsteps:'Next Steps'};
+const SCORE_LABELS={1:'Poor',2:'Needs Work',3:'Developing',4:'Strong',5:'Excellent'};
+const OUTCOME_LABELS={pending:'Pending',next_steps:'Next Steps Set',won_3yr:'Won — 3yr',won_1yr:'Won — 1yr',lost:'Lost',stalled:'Stalled'};
+const OUTCOME_COLORS={pending:'var(--text-muted)',next_steps:'var(--accent3)',won_3yr:'var(--good)',won_1yr:'var(--okay)',lost:'var(--poor)',stalled:'var(--okay)'};
+
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+let currentUser=null,currentProfile=null,allCalls=[],allProfiles=[];
+let userScores={discovery:null,objections:null,stakeholders:null,nextsteps:null};
+let aiScores={};
+
+// ── AUTH ──
+async function signInWithGoogle(){
+  const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href}});
+  if(error){document.getElementById('auth-error').textContent=error.message;document.getElementById('auth-error').style.display='block';}
+}
+async function signOut(){await sb.auth.signOut();location.reload();}
+
+async function init(){
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){currentUser=session.user;await loadProfile();showApp();}
+  else{document.getElementById('auth-screen').style.display='flex';}
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_IN'&&session){currentUser=session.user;await loadProfile();showApp();}
+    else if(event==='SIGNED_OUT'){document.getElementById('auth-screen').style.display='flex';document.getElementById('app-screen').style.display='none';}
+  });
+}
+
+async function loadProfile(){
+  const{data}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  if(data){currentProfile=data;}
+  else{
+    const name=currentUser.user_metadata?.full_name||currentUser.email.split('@')[0];
+    const{data:np}=await sb.from('profiles').insert({id:currentUser.id,email:currentUser.email,full_name:name,role:'rep'}).select().single();
+    currentProfile=np;
+  }
+}
+
+function showApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
+  const name=currentProfile?.full_name||currentUser.email;
+  const role=currentProfile?.role||'rep';
+  document.getElementById('user-name-display').textContent=name;
+  document.getElementById('user-role-display').textContent=role;
+  document.getElementById('user-avatar').textContent=name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  if(role==='rep'){document.getElementById('nav-score').style.display='none';document.getElementById('topbar-score-btn').style.display='none';document.getElementById('reps-section').style.display='none';}
+  document.getElementById('week-label').textContent='Week of '+weekStart(new Date());
+  loadAllData();
+}
+
+// ── DATA ──
+function weekStart(date){
+  const d=new Date(date);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);d.setDate(diff);return d.toISOString().split('T')[0];
+}
+
+async function loadAllData(){
+  const{data:profiles}=await sb.from('profiles').select('*');
+  allProfiles=profiles||[];
+  const{data:calls}=await sb.from('calls').select('*,scores(*),coaching(*),profiles!calls_rep_id_fkey(full_name,email,role)').order('call_date',{ascending:false});
+  allCalls=calls||[];
+  renderSidebar();renderDashboard();populateSelects();
+}
+
+function calcWeighted(s){
+  if(!s)return null;
+  let t=0,w=0;
+  CATS.forEach(c=>{if(s[c]){t+=s[c]*WEIGHTS[c];w+=WEIGHTS[c];}});
+  return w>0?Math.round((t/w)*10)/10:null;
+}
+
+function scoreColor(v){if(!v)return'var(--text-muted)';if(v>=4)return'var(--good)';if(v>=2.5)return'var(--okay)';return'var(--poor)';}
+function scoreClass(v){if(!v)return'';if(v>=4)return'badge-good';if(v>=2.5)return'badge-okay';return'badge-poor';}
+function scoreLabel(v){if(!v)return'—';if(v>=4.5)return'Excellent';if(v>=4)return'Strong';if(v>=3)return'Developing';if(v>=2)return'Needs Work';return'Poor';}
+function numBadge(v){if(!v)return'<span style="color:var(--text-dim)">—</span>';const c=scoreClass(v);return`<span class="score-badge ${c}">${v}/5</span>`;}
+function outcomeBadge(o){const l=OUTCOME_LABELS[o]||o;const c=o==='won_3yr'?'badge-good':o==='won_1yr'?'badge-okay':o==='lost'?'badge-poor':'badge-neutral';return`<span class="score-badge ${c}">${l}</span>`;}
+
+// ── SIDEBAR ──
+function renderSidebar(){
+  const reps=allProfiles.filter(p=>p.role==='rep');
+  document.getElementById('sidebar-reps').innerHTML=reps.map(r=>{
+    const rc=allCalls.filter(c=>c.rep_id===r.id);
+    const scores=rc.map(c=>calcWeighted(c.scores?.[0])).filter(Boolean);
+    const avg=scores.length?(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1):null;
+    const init=(r.full_name||r.email).split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    return`<div class="rep-item"><div class="rep-avatar">${init}</div><div class="rep-name">${(r.full_name||r.email).split(' ')[0]}</div><div style="font-size:11px;color:${avg?scoreColor(parseFloat(avg)):'var(--text-dim)'}">${avg||'—'}</div></div>`;
+  }).join('')||'<div style="font-size:11px;color:var(--text-dim);padding:4px 10px">No reps yet</div>';
+}
+
+function populateSelects(){
+  const reps=allProfiles.filter(p=>p.role==='rep');
+  const repOpts='<option value="">— Select Rep —</option>'+reps.map(r=>`<option value="${r.id}">${r.full_name||r.email}</option>`).join('');
+  document.getElementById('sc-rep').innerHTML=repOpts;
+  document.getElementById('filter-rep').innerHTML='<option value="">All Reps</option>'+reps.map(r=>`<option value="${r.id}">${r.full_name||r.email}</option>`).join('');
+  const weeks=[...new Set(allCalls.map(c=>weekStart(c.call_date)))].sort().reverse();
+  document.getElementById('filter-week').innerHTML='<option value="">All Time</option>'+weeks.map(w=>`<option value="${w}">Week of ${w}</option>`).join('');
+}
+
+// ── DASHBOARD ──
+function renderDashboard(){
+  const tw=weekStart(new Date());const lw=weekStart(new Date(Date.now()-7*86400000));
+  const tc=allCalls.filter(c=>weekStart(c.call_date)===tw);
+  const lc=allCalls.filter(c=>weekStart(c.call_date)===lw);
+  document.getElementById('s-calls').textContent=tc.length;
+  const cd=tc.length-lc.length;const cdEl=document.getElementById('s-calls-d');
+  cdEl.textContent=cd===0?'Same as last week':(cd>0?`+${cd} vs last week`:`${cd} vs last week`);
+  cdEl.className='stat-delta '+(cd>0?'up':cd<0?'down':'');
+  const at=avgWScore(tc);document.getElementById('s-avg').textContent=at?at.toFixed(1):'—';
+  const al=avgWScore(lc);const adEl=document.getElementById('s-avg-d');
+  if(at&&al){const d=(at-al).toFixed(1);adEl.textContent=(d>=0?'+':'')+d+' vs last week';adEl.className='stat-delta '+(d>=0?'up':'down');}
+  else{adEl.textContent='—';}
+  const w3=allCalls.filter(c=>c.outcome==='won_3yr').length;const wt=allCalls.filter(c=>c.outcome==='won_3yr'||c.outcome==='won_1yr').length;
+  document.getElementById('s-3yr').textContent=wt?`${w3}/${wt}`:'—';
+  const gap=biggestGap(allCalls.slice(0,30));
+  document.getElementById('s-gap').textContent=gap?CAT_LABELS[gap]:'—';
+  document.getElementById('s-gap-d').textContent=gap?'Most common weak area':'Score calls to identify';
+  renderSkillBars('dash-skills',tc.length?tc:allCalls.slice(0,20));
+  renderTrend('dash-trend');
+  renderCallsTable('dash-tbody',allCalls.slice(0,10));
+}
+
+function avgWScore(calls){const s=calls.map(c=>calcWeighted(c.scores?.[0])).filter(Boolean);return s.length?s.reduce((a,b)=>a+b,0)/s.length:null;}
+function biggestGap(calls){if(!calls.length)return null;const avgs={};CATS.forEach(c=>{const v=calls.map(x=>x.scores?.[0]?.[c]).filter(Boolean);avgs[c]=v.length?v.reduce((a,b)=>a+b,0)/v.length:0;});return Object.entries(avgs).filter(([,v])=>v>0).sort((a,b)=>a[1]-b[1])[0]?.[0]||null;}
+
+function renderSkillBars(elId,calls){
+  const el=document.getElementById(elId);
+  if(!calls.length){el.innerHTML='<div class="empty" style="padding:16px 0"><div class="empty-sub">No calls to analyze.</div></div>';return;}
+  el.innerHTML=CATS.map(cat=>{
+    const vals=calls.map(c=>c.scores?.[0]?.[cat]).filter(Boolean);
+    const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+    const pct=Math.round((avg/5)*100);
+    const color=avg>=4?'var(--good)':avg>=2.5?'var(--okay)':avg>0?'var(--poor)':'var(--text-dim)';
+    const bc=avg>=4?'bar-good':avg>=2.5?'bar-okay':avg>0?'bar-poor':'';
+    return`<div class="skill-row"><div class="skill-meta"><span class="skill-name">${CAT_LABELS[cat]}</span><span class="skill-pct" style="color:${color}">${avg?avg.toFixed(1)+'/5':'—'}</span></div><div class="bar-track"><div class="bar-fill ${bc}" style="width:${pct}%"></div></div></div>`;
+  }).join('');
+}
+
+function renderTrend(elId){
+  const el=document.getElementById(elId);
+  const weeks=[];for(let i=5;i>=0;i--){const d=new Date(Date.now()-i*7*86400000);weeks.push(weekStart(d));}
+  const data=weeks.map(w=>{const wc=allCalls.filter(c=>weekStart(c.call_date)===w);return{week:w,avg:avgWScore(wc),count:wc.length};});
+  if(!data.some(d=>d.count>0)){el.innerHTML='<div class="empty" style="width:100%;padding:16px 0"><div class="empty-sub">Score multiple weeks to see trends.</div></div>';return;}
+  el.innerHTML=data.map(d=>{
+    const h=d.avg?Math.round((d.avg/5)*55)+5:3;
+    const color=d.avg>=4?'var(--good)':d.avg>=2.5?'var(--okay)':d.avg?'var(--poor)':'var(--surface3)';
+    return`<div class="trend-col"><div class="trend-bar-area"><div class="trend-bar" style="height:${h}px;background:${color};opacity:${d.count?1:0.2}"></div></div><div class="trend-label">${d.week.slice(5).replace('-','/')}</div></div>`;
+  }).join('');
+}
+
+function renderCallsTable(tbodyId,calls){
+  const tbody=document.getElementById(tbodyId);
+  if(!calls.length){tbody.innerHTML='<tr><td colspan="9"><div class="empty"><div class="empty-icon">◈</div><div class="empty-title">No calls yet</div><div class="empty-sub">Score your first demo call to get started.</div></div></td></tr>';return;}
+  tbody.innerHTML=calls.map(c=>{
+    const s=c.scores?.[0];const w=calcWeighted(s);
+    const rn=c.profiles?.full_name||c.profiles?.email||'—';
+    const init=rn.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    return`<tr onclick="openModal('${c.id}')">
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="rep-avatar" style="width:22px;height:22px;font-size:9px">${init}</div>${rn.split(' ')[0]}</div></td>
+      <td>${c.prospect}</td><td style="color:var(--text-muted)">${c.call_date}</td>
+      <td>${numBadge(s?.discovery)}</td><td>${numBadge(s?.objections)}</td><td>${numBadge(s?.stakeholders)}</td><td>${numBadge(s?.nextsteps)}</td>
+      <td><span style="font-family:'Syne',sans-serif;font-weight:700;color:${scoreColor(w)}">${w?w+'/5':'—'}</span></td>
+      <td>${outcomeBadge(c.outcome)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ALL CALLS ──
+function renderAllCalls(){
+  const rf=document.getElementById('filter-rep').value;
+  const of=document.getElementById('filter-outcome').value;
+  const wf=document.getElementById('filter-week').value;
+  let calls=allCalls;
+  if(rf)calls=calls.filter(c=>c.rep_id===rf);
+  if(of)calls=calls.filter(c=>c.outcome===of);
+  if(wf)calls=calls.filter(c=>weekStart(c.call_date)===wf);
+  const el=document.getElementById('all-calls-container');
+  if(!calls.length){el.innerHTML='<div class="empty"><div class="empty-icon">◈</div><div class="empty-title">No calls match filters</div></div>';return;}
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Rep</th><th>Prospect</th><th>Date</th><th>Discovery</th><th>Objections</th><th>Stakeholders</th><th>Next Steps</th><th>Weighted</th><th>Outcome</th></tr></thead><tbody id="all-tbody"></tbody></table></div>';
+  renderCallsTable('all-tbody',calls);
+}
+
+// ── COACHING ──
+function renderCoaching(){
+  const reps=allProfiles.filter(p=>p.role==='rep');
+  document.getElementById('coaching-rep-stats').innerHTML=reps.slice(0,4).map(r=>{
+    const rc=allCalls.filter(c=>c.rep_id===r.id);const avg=avgWScore(rc);
+    return`<div class="stat-card"><div class="stat-label">${(r.full_name||r.email).split(' ')[0]}</div><div class="stat-value" style="color:${avg?scoreColor(avg):'var(--text-dim)'}">${avg?avg.toFixed(1):'—'}</div><div class="stat-delta">${rc.length} call${rc.length===1?'':'s'}</div></div>`;
+  }).join('');
+  renderSkillBars('coaching-skills',allCalls);
+  const w3=allCalls.filter(c=>c.outcome==='won_3yr').length;const w1=allCalls.filter(c=>c.outcome==='won_1yr').length;const wt=w3+w1;
+  const dtEl=document.getElementById('deal-tier-chart');
+  if(!wt){dtEl.innerHTML='<div class="empty" style="padding:16px 0"><div class="empty-sub">No closed deals yet.</div></div>';}
+  else{
+    const p3=Math.round((w3/wt)*100);
+    dtEl.innerHTML=`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;color:var(--text-muted)">3-Year (CEO priority)</span><span style="font-family:'Syne',sans-serif;font-weight:700;color:var(--good)">${w3} deals · ${p3}%</span></div><div class="bar-track" style="height:10px"><div class="bar-fill bar-good" style="width:${p3}%"></div></div></div><div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;color:var(--text-muted)">1-Year</span><span style="font-family:'Syne',sans-serif;font-weight:700;color:var(--okay)">${w1} deals · ${100-p3}%</span></div><div class="bar-track" style="height:10px"><div class="bar-fill bar-okay" style="width:${100-p3}%"></div></div></div><div style="margin-top:14px;font-size:11px;color:var(--text-muted)">Target: drive 3-yr rate above 70%</div>`;
+  }
+  const lbEl=document.getElementById('leaderboard');
+  const ranked=reps.map(r=>{const rc=allCalls.filter(c=>c.rep_id===r.id);return{rep:r,avg:avgWScore(rc)||0,calls:rc.length};}).sort((a,b)=>b.avg-a.avg);
+  lbEl.innerHTML=ranked.length?ranked.map((r,i)=>{
+    const rc=i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const init=(r.rep.full_name||r.rep.email).split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    return`<div class="lb-row"><div class="lb-rank ${rc}">${i+1}</div><div class="rep-avatar">${init}</div><div class="lb-info"><div class="lb-name">${r.rep.full_name||r.rep.email}</div><div class="lb-calls">${r.calls} call${r.calls===1?'':'s'} · ${scoreLabel(r.avg)}</div></div><div class="lb-score" style="color:${scoreColor(r.avg)}">${r.avg?r.avg.toFixed(1):'—'}<span style="font-size:12px;color:var(--text-muted)">/5</span></div></div>`;
+  }).join(''):'<div class="empty-sub" style="font-size:12px">No reps to display.</div>';
+  document.getElementById('rep-breakdown').innerHTML=reps.map(r=>{
+    const rc=allCalls.filter(c=>c.rep_id===r.id);if(!rc.length)return'';
+    const init=(r.full_name||r.email).split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    return`<div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="rep-avatar">${init}</div><span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">${r.full_name||r.email}</span><span style="color:var(--text-muted);font-size:11px">${rc.length} calls</span></div><div class="skill-bars">${CATS.map(cat=>{const vals=rc.map(c=>c.scores?.[0]?.[cat]).filter(Boolean);const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;const pct=Math.round((avg/5)*100);const color=avg>=4?'var(--good)':avg>=2.5?'var(--okay)':avg>0?'var(--poor)':'var(--text-dim)';const bc=avg>=4?'bar-good':avg>=2.5?'bar-okay':avg>0?'bar-poor':'';return`<div class="skill-row"><div class="skill-meta"><span class="skill-name">${CAT_LABELS[cat]}</span><span class="skill-pct" style="color:${color}">${avg?avg.toFixed(1)+'/5':'—'}</span></div><div class="bar-track"><div class="bar-fill ${bc}" style="width:${pct}%"></div></div></div>`;}).join('')}</div></div>`;
+  }).join('')||'<div class="empty-sub">No data yet.</div>';
+}
+
+// ── MY SCORECARDS ──
+function renderMyScores(){
+  const mine=allCalls.filter(c=>c.rep_id===currentUser.id);
+  const el=document.getElementById('my-scores-container');
+  if(!mine.length){el.innerHTML='<div class="empty"><div class="empty-icon">◎</div><div class="empty-title">No scorecards yet</div><div class="empty-sub">Your director will score your calls and they\'ll appear here.</div></div>';return;}
+  el.innerHTML=mine.map(c=>{
+    const s=c.scores?.[0];const coa=c.coaching?.[0];const w=calcWeighted(s);
+    return`<div style="max-width:680px;margin-bottom:20px">
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:4px">${c.prospect}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">${c.call_date} · ${outcomeBadge(c.outcome)}</div>
+        <div style="display:flex;align-items:center;gap:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-family:'Syne',sans-serif;font-size:40px;font-weight:800;color:${scoreColor(w)}">${w||'—'}</div>
+          <div><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">${scoreLabel(w)}</div><div style="font-size:11px;color:var(--text-muted)">Weighted score out of 5</div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:12px"><div class="skill-bars">${CATS.map(cat=>{const val=s?.[cat];const pct=val?Math.round((val/5)*100):0;const color=scoreColor(val);const bc=val>=4?'bar-good':val>=2.5?'bar-okay':val?'bar-poor':'';const note=s?.[cat+'_notes'];return`<div class="skill-row" style="margin-bottom:${note?'14px':'8px'}"><div class="skill-meta"><span class="skill-name">${CAT_LABELS[cat]}<span class="weight-badge">${Math.round(WEIGHTS[cat]*100)}%</span></span><span class="skill-pct" style="color:${color}">${val?val+'/5':'—'}</span></div><div class="bar-track"><div class="bar-fill ${bc}" style="width:${pct}%"></div></div>${note?`<div style="font-size:11px;color:var(--text-muted);margin-top:5px;line-height:1.6">${note}</div>`:''}</div>`;}).join('')}</div></div>
+      ${coa?.summary?`<div class="ai-block"><div class="ai-label"><div class="ai-dot"></div>Coaching Summary</div><div class="ai-text">${coa.summary}</div></div>`:''}
+      ${coa?.focus_action?`<div class="focus-box"><div class="focus-label">Your Focus for Next Call</div><div class="focus-text">${coa.focus_action}</div></div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── SCORE FORM ──
+function updateSlider(cat,val){
+  const v=parseInt(val);userScores[cat]=v;
+  const disp=document.getElementById('disp-'+cat);const lbl=document.getElementById('lbl-'+cat);
+  disp.textContent=v;disp.style.color=scoreColor(v);lbl.textContent=SCORE_LABELS[v];
+  if(aiScores[cat]&&aiScores[cat]!==v)document.getElementById('override-'+cat).classList.add('visible');
+  else document.getElementById('override-'+cat).classList.remove('visible');
+  updateWeightedPreview();
+}
+
+function updateWeightedPreview(){
+  const scored=CATS.filter(c=>userScores[c]);
+  if(!scored.length){document.getElementById('weighted-preview').textContent='—';document.getElementById('weighted-label').textContent='Score categories above';return;}
+  let t=0,w=0;scored.forEach(c=>{t+=userScores[c]*WEIGHTS[c];w+=WEIGHTS[c];});
+  const score=(t/w).toFixed(1);
+  document.getElementById('weighted-preview').textContent=score;
+  document.getElementById('weighted-preview').style.color=scoreColor(parseFloat(score));
+  document.getElementById('weighted-label').textContent=scoreLabel(parseFloat(score));
+}
+
+function applyAIScores(scores){
+  aiScores={...scores};
+  CATS.forEach(cat=>{if(scores[cat]){document.getElementById('slider-'+cat).value=scores[cat];updateSlider(cat,scores[cat]);}});
+}
+
+async function analyzeTranscript(){
+  const transcript=document.getElementById('sc-transcript').value.trim();
+  if(!transcript){alert('Please paste a transcript first.');return;}
+  const statusEl=document.getElementById('analyze-status');
+  statusEl.innerHTML='<div class="loading"><div class="spinner"></div>Analysing with AI...</div>';
+  document.getElementById('ai-results').style.display='none';
+  const system=`You are an expert sales coach for Delight, an AI customer growth agent for trades businesses (~$5k/yr AUD). Simpro cross-sells it. CEO directive: drive 3-year deals (30% discount, effectively 3 years for ~2x annual price).
+
+Score 1-5:
+DISCOVERY(30%): 1=jumped to demo, 3=surface discovery, 5=deep pain quantified alternatives explored
+OBJECTIONS(25%): 1=poor handling, 3=handled some, 5=excellent reframed validated
+STAKEHOLDERS(15%): 1=didn't identify DMs, 3=found but weak plan, 5=all identified emailed scheduled
+NEXT STEPS(30%): 1=informal no calendar, 3=>1 week away, 5=within 48hrs all DMs
+
+Return ONLY valid JSON:
+{"discovery":<1-5>,"objections":<1-5>,"stakeholders":<1-5>,"nextsteps":<1-5>,"deal_tier":"1yr|3yr|unknown","deal_tier_reason":"<one sentence>","summary":"<2-3 sentences: top strength and biggest gap>","focus_action":"<single most important thing for next call>","coaching_flags":["<point>","<point>"]}`;
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system,messages:[{role:'user',content:`Transcript:\n${transcript.slice(0,9000)}`}]})});
+    const data=await resp.json();
+    const raw=data.content?.find(b=>b.type==='text')?.text||'';
+    const result=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    applyAIScores(result);
+    document.getElementById('ai-results').style.display='block';
+    let html=`<p style="margin-bottom:10px">${result.summary}</p>`;
+    if(result.coaching_flags?.length)html+='<div style="margin-top:8px">'+result.coaching_flags.map(f=>`<span class="coaching-tag">⚑ ${f}</span>`).join('')+'</div>';
+    document.getElementById('ai-summary-text').innerHTML=html;
+    if(result.focus_action)document.getElementById('sc-focus-action').value=result.focus_action;
+    const dc=result.deal_tier==='3yr'?'signal-3yr':result.deal_tier==='1yr'?'signal-1yr':'signal-unknown';
+    document.getElementById('ai-deal-signal').innerHTML=`<span class="deal-signal ${dc}">Deal signal: ${(result.deal_tier||'unknown').toUpperCase()}</span><span style="font-size:11px;color:var(--text-muted);margin-left:8px">${result.deal_tier_reason||''}</span>`;
+    statusEl.innerHTML='<div style="font-size:11px;color:var(--good);padding:4px 0">✓ Analysis complete — review and override as needed</div>';
+  }catch(e){statusEl.innerHTML=`<div style="font-size:11px;color:var(--poor);padding:4px 0">✗ Analysis failed: ${e.message}. Score manually.</div>`;}
+}
+
+async function saveCall(){
+  const repId=document.getElementById('sc-rep').value;
+  const prospect=document.getElementById('sc-prospect').value.trim();
+  const date=document.getElementById('sc-date').value;
+  if(!repId||!prospect||!date){alert('Please fill in rep, prospect, and date.');return;}
+  if(!CATS.some(c=>userScores[c])){alert('Please score at least one category.');return;}
+  let t=0,w=0;CATS.forEach(c=>{if(userScores[c]){t+=userScores[c]*WEIGHTS[c];w+=WEIGHTS[c];}});
+  const ws=w>0?parseFloat((t/w).toFixed(2)):null;
+  try{
+    const{data:call,error:ce}=await sb.from('calls').insert({rep_id:repId,prospect,call_date:date,week_start:weekStart(date),outcome:document.getElementById('sc-outcome').value,transcript:document.getElementById('sc-transcript').value.slice(0,5000),overall_score:ws,created_by:currentUser.id}).select().single();
+    if(ce)throw ce;
+    await sb.from('scores').insert({call_id:call.id,discovery:userScores.discovery,objections:userScores.objections,stakeholders:userScores.stakeholders,nextsteps:userScores.nextsteps,discovery_ai:aiScores.discovery||null,objections_ai:aiScores.objections||null,stakeholders_ai:aiScores.stakeholders||null,nextsteps_ai:aiScores.nextsteps||null,discovery_notes:document.getElementById('notes-discovery').value,objections_notes:document.getElementById('notes-objections').value,stakeholders_notes:document.getElementById('notes-stakeholders').value,nextsteps_notes:document.getElementById('notes-nextsteps').value,weighted_score:ws});
+    const summary=document.getElementById('sc-overall-notes').value;const focus=document.getElementById('sc-focus-action').value;
+    if(summary||focus)await sb.from('coaching').insert({call_id:call.id,summary,focus_action:focus,deal_tier_signal:aiScores.deal_tier||'unknown'});
+    alert(`✓ Saved — ${prospect}`);resetForm();await loadAllData();showView('dashboard');
+  }catch(e){alert('Error saving: '+e.message);}
+}
+
+function resetForm(){
+  ['sc-prospect','sc-overall-notes','sc-focus-action','sc-transcript'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sc-rep').selectedIndex=0;document.getElementById('sc-outcome').selectedIndex=0;
+  document.getElementById('sc-date').value=new Date().toISOString().split('T')[0];
+  CATS.forEach(cat=>{document.getElementById('slider-'+cat).value=3;document.getElementById('disp-'+cat).textContent='—';document.getElementById('disp-'+cat).style.color='var(--text-muted)';document.getElementById('lbl-'+cat).textContent='Not scored';document.getElementById('notes-'+cat).value='';document.getElementById('override-'+cat).classList.remove('visible');});
+  document.getElementById('weighted-preview').textContent='—';document.getElementById('weighted-label').textContent='Score categories above';
+  document.getElementById('ai-results').style.display='none';document.getElementById('analyze-status').innerHTML='';
+  document.getElementById('clari-list').style.display='none';document.getElementById('clari-status').innerHTML='';
+  userScores={discovery:null,objections:null,stakeholders:null,nextsteps:null};aiScores={};
+}
+
+// ── CLARI ──
+async function pullClariCalls(){
+  const statusEl=document.getElementById('clari-status');const listEl=document.getElementById('clari-list');
+  statusEl.innerHTML='<div class="loading"><div class="spinner"></div>Connecting to Clari Copilot...</div>';listEl.style.display='none';
+  const range=document.getElementById('clari-range').value;const now=new Date();let from;
+  if(range==='today'){from=new Date(now);from.setHours(0,0,0,0);}
+  else if(range==='yesterday'){from=new Date(now);from.setDate(from.getDate()-1);from.setHours(0,0,0,0);}
+  else if(range==='week'){from=new Date(weekStart(new Date()));}
+  else{from=new Date(now.getFullYear(),now.getMonth(),1);}
+  try{
+    const resp=await fetch(`https://api.copilot.clari.com/v1/calls?from=${from.toISOString()}&limit=25`,{headers:{'x-api-key':CLARI_API_KEY,'x-api-secret':CLARI_SECRET,'Content-Type':'application/json'}});
+    if(!resp.ok){const t=await resp.text();throw new Error(`${resp.status}: ${t.slice(0,80)}`);}
+    const data=await resp.json();const calls=data.calls||data.data||data.results||[];
+    if(!Array.isArray(calls)||!calls.length){statusEl.innerHTML='<span style="color:var(--text-muted)">No calls found. Try a wider date range.</span>';return;}
+    statusEl.innerHTML=`<span style="color:var(--good)">✓ Found ${calls.length} call${calls.length===1?'':'s'}</span>`;
+    listEl.style.display='flex';
+    listEl.innerHTML=calls.map((c,i)=>{const title=c.title||c.name||c.topic||`Call ${i+1}`;const date=(c.started_at||c.date||'').split('T')[0];const dur=c.duration_seconds?Math.round(c.duration_seconds/60)+'min':'';return`<div class="clari-item" onclick="selectClariCall(this,'${c.id||i}','${(title).replace(/'/g,"\\'")}','${date}')"><div style="flex:1;font-size:12px">${title}</div><div style="font-size:11px;color:var(--text-muted)">${date}</div><div style="font-size:10px;color:var(--text-dim)">${dur}</div></div>`;}).join('');
+  }catch(e){statusEl.innerHTML=`<span style="color:var(--okay)">⚠ Clari: ${e.message.includes('401')||e.message.includes('403')?'API plan may not support transcript access — paste transcript manually below.':e.message.slice(0,100)}</span>`;}
+}
+
+async function selectClariCall(el,callId,title,date){
+  document.querySelectorAll('.clari-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');
+  document.getElementById('sc-prospect').value=title;if(date)document.getElementById('sc-date').value=date;
+  const statusEl=document.getElementById('clari-status');statusEl.innerHTML='<div class="loading"><div class="spinner"></div>Fetching transcript...</div>';
+  try{
+    const resp=await fetch(`https://api.copilot.clari.com/v1/calls/${callId}/transcript`,{headers:{'x-api-key':CLARI_API_KEY,'x-api-secret':CLARI_SECRET}});
+    if(!resp.ok)throw new Error(`${resp.status}`);
+    const data=await resp.json();let text='';
+    if(typeof data==='string')text=data;
+    else if(data.transcript)text=typeof data.transcript==='string'?data.transcript:data.transcript.map(t=>`${t.speaker||''}: ${t.text||t.content||''}`).join('\n');
+    else if(data.utterances)text=data.utterances.map(u=>`${u.speaker||''}: ${u.transcript||u.text||''}`).join('\n');
+    else if(Array.isArray(data))text=data.map(u=>`${u.speaker||''}: ${u.text||u.content||''}`).join('\n');
+    if(text){document.getElementById('sc-transcript').value=text;statusEl.innerHTML='<span style="color:var(--good)">✓ Transcript loaded — click Analyse with AI</span>';}
+    else{statusEl.innerHTML='<span style="color:var(--okay)">⚠ Could not parse transcript format — paste manually below</span>';}
+  }catch(e){statusEl.innerHTML=`<span style="color:var(--okay)">⚠ Transcript fetch failed (${e.message}) — paste manually</span>`;}
+}
+
+// ── MODAL ──
+function openModal(callId){
+  const call=allCalls.find(c=>c.id===callId);if(!call)return;
+  const s=call.scores?.[0];const coa=call.coaching?.[0];const w=calcWeighted(s);
+  const rn=call.profiles?.full_name||call.profiles?.email||'—';
+  const m=document.createElement('div');m.className='modal-overlay';
+  m.innerHTML=`<div class="modal"><div class="modal-header"><div><div class="modal-title">${call.prospect}</div><div style="font-size:11px;color:var(--text-muted);margin-top:2px">${rn} · ${call.call_date} · ${outcomeBadge(call.outcome)}</div></div><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button></div><div class="modal-body">
+    <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--surface2);border-radius:var(--radius);margin-bottom:20px"><div style="font-family:'Syne',sans-serif;font-size:40px;font-weight:800;color:${scoreColor(w)}">${w||'—'}</div><div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${scoreLabel(w)}</div><div style="font-size:11px;color:var(--text-muted)">Weighted score out of 5</div></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">${CATS.map(cat=>{const val=s?.[cat];const note=s?.[cat+'_notes'];const aiVal=s?.[cat+'_ai'];return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:8px">${CAT_LABELS[cat]} <span style="color:var(--text-dim)">${Math.round(WEIGHTS[cat]*100)}%</span></div>${val?`<span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${scoreColor(val)}">${val}</span><span style="color:var(--text-muted)">/5</span>`:'<span style="color:var(--text-dim)">—</span>'}${aiVal&&aiVal!==val?`<div style="font-size:10px;color:var(--accent3);margin-top:4px">AI suggested: ${aiVal}/5</div>`:''}${note?`<div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6">${note}</div>`:''}</div>`;}).join('')}</div>
+    ${coa?.summary?`<div class="ai-block"><div class="ai-label"><div class="ai-dot"></div>Coaching Summary</div><div class="ai-text">${coa.summary}</div></div>`:''}
+    ${coa?.focus_action?`<div class="focus-box"><div class="focus-label">Focus Action</div><div class="focus-text">${coa.focus_action}</div></div>`:''}
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">${currentProfile?.role!=='rep'?`<button class="btn btn-danger btn-sm" onclick="deleteCall('${call.id}',this)">Delete</button>`:''}<button class="btn btn-ghost btn-sm" onclick="this.closest('.modal-overlay').remove()">Close</button></div>
+  </div></div>`;
+  document.body.appendChild(m);m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+}
+
+async function deleteCall(callId,btn){
+  if(!confirm('Delete this call? Cannot be undone.'))return;
+  await sb.from('calls').delete().eq('id',callId);
+  btn.closest('.modal-overlay').remove();await loadAllData();
+}
+
+// ── NAV ──
+const VIEW_TITLES={dashboard:'Dashboard','score-call':'Score a Call','all-calls':'All Calls',coaching:'Coaching Trends','my-scores':'My Scorecards'};
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>{if(b.getAttribute('onclick')?.includes(`'${id}'`))b.classList.add('active');});
+  document.getElementById('topbar-title').textContent=VIEW_TITLES[id]||id;
+  if(id==='dashboard')renderDashboard();
+  if(id==='all-calls'){populateSelects();renderAllCalls();}
+  if(id==='coaching')renderCoaching();
+  if(id==='my-scores')renderMyScores();
+  if(id==='score-call'){document.getElementById('sc-date').value=new Date().toISOString().split('T')[0];populateSelects();}
+}
+
+init();
+</script>
+</body>
+</html>
