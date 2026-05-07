@@ -610,6 +610,7 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;hei
 <script>
 const SUPA_URL='https://aznbmeothwhgymojpfqp.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bmJtZW90aHdoZ3ltb2pwZnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MzAxMTgsImV4cCI6MjA5MzUwNjExOH0.Go48hdSPAdx-xtF1mzrqbAXr51igtIbgcpBd8z-3RTQ';
+const PROXY_URL='https://delight-proxy-production.up.railway.app';
 const CLARI_KEY='lhD8kbRF1C9IyIDf519zJrcyZgyN9PE3e1qKIYTb';
 const CLARI_SECRET='88a827b8-2098-4938-92e1-f3e3e6c961bb';
 
@@ -1067,7 +1068,7 @@ NEXT STEPS(${callNum===1?30:callNum===2?35:20}%): 1=informal no calendar, 3=>1 w
 Return ONLY valid JSON:
 {"discovery":${callNum===1?'<1-5>':0},"objections":<1-5>,"stakeholders":<1-5>,"nextsteps":<1-5>,"deal_tier":"1yr|3yr|unknown","deal_tier_reason":"<one sentence>","summary":"<2-3 sentences: top strength and biggest gap>","focus_action":"<single most important thing for next call>","coaching_flags":["<point>","<point>"]}`;
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system,messages:[{role:'user',content:`Transcript:\n${transcript.slice(0,9000)}`}]})});
+    const resp=await fetch(`${PROXY_URL}/ai/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,transcript:transcript.slice(0,9000),callNumber:callNum})});
     const data=await resp.json();
     const raw=data.content?.find(b=>b.type==='text')?.text||'';
     const result=JSON.parse(raw.replace(/```json|```/g,'').trim());
@@ -1136,7 +1137,7 @@ async function pullClariCalls(){
   else if(range==='week'){from=new Date(weekStart(new Date()));}
   else{from=new Date(now.getFullYear(),now.getMonth(),1);}
   try{
-    const resp=await fetch(`https://api.copilot.clari.com/v1/calls?from=${from.toISOString()}&limit=25`,{headers:{'x-api-key':CLARI_KEY,'x-api-secret':CLARI_SECRET,'Content-Type':'application/json'}});
+    const resp=await fetch(`${PROXY_URL}/clari/calls?from=${from.toISOString()}&limit=25`);
     if(!resp.ok)throw new Error(`${resp.status}`);
     const data=await resp.json();const calls=data.calls||data.data||data.results||[];
     if(!Array.isArray(calls)||!calls.length){statusEl.innerHTML='<span style="color:var(--text-muted)">No calls found. Try a wider date range.</span>';return;}
@@ -1151,7 +1152,7 @@ async function selectClariCall(el,callId,title,date){
   if(date)document.getElementById('sc-date').value=date;
   const statusEl=document.getElementById('clari-status');statusEl.innerHTML='<div class="loading"><div class="spinner"></div>Fetching transcript...</div>';
   try{
-    const resp=await fetch(`https://api.copilot.clari.com/v1/calls/${callId}/transcript`,{headers:{'x-api-key':CLARI_KEY,'x-api-secret':CLARI_SECRET}});
+    const resp=await fetch(`${PROXY_URL}/clari/calls/${callId}/transcript`);
     if(!resp.ok)throw new Error(`${resp.status}`);
     const data=await resp.json();let text='';
     if(typeof data==='string')text=data;
