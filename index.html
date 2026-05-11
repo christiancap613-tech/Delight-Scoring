@@ -1137,7 +1137,9 @@ async function pullClariCalls(){
   else if(range==='week'){from=new Date(weekStart(new Date()));}
   else{from=new Date(now.getFullYear(),now.getMonth(),1);}
   try{
-    const resp=await fetch(`${PROXY_URL}/clari/calls?from=${from.toISOString()}&limit=25`);
+    const clariUserId = currentProfile?.clari_user_id;
+    const userParam = clariUserId ? `&user_id=${clariUserId}` : '';
+    const resp=await fetch(`${PROXY_URL}/clari/calls?from=${from.toISOString()}&limit=25${userParam}`);
     if(!resp.ok)throw new Error(`${resp.status}`);
     const data=await resp.json();const calls=data.calls||data.data||data.results||[];
     if(!Array.isArray(calls)||!calls.length){statusEl.innerHTML='<span style="color:var(--text-muted)">No calls found. Try a wider date range.</span>';return;}
