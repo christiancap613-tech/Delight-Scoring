@@ -1071,7 +1071,12 @@ Return ONLY valid JSON:
     const resp=await fetch(`${PROXY_URL}/ai/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,transcript:transcript.slice(0,9000),callNumber:callNum})});
     const data=await resp.json();
     const raw=data.content?.find(b=>b.type==='text')?.text||'';
-    const result=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    if(!raw)throw new Error('Empty response from AI');
+    const cleaned=raw.replace(/```json|```/g,'').trim();
+    // Extract JSON even if there's surrounding text
+    const jsonMatch=cleaned.match(/\{[\s\S]*\}/);
+    if(!jsonMatch)throw new Error('No JSON found in response');
+    const result=JSON.parse(jsonMatch[0]);
     applyAIScores(result);
     document.getElementById('ai-results').style.display='block';
     let html=`<p style="margin-bottom:10px">${result.summary}</p>`;
